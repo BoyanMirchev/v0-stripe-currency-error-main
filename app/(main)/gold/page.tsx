@@ -52,9 +52,18 @@ interface GoldCategory {
   parent_id: number | null
 }
 
-export default function GoldPage() {
+const SILVER_REGEX = /сребро|srebro|silver/i
+export function isSilverType(goldType: string | null | undefined) {
+  return SILVER_REGEX.test(goldType || "")
+}
+
+export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) {
   const searchParams = useSearchParams()
   const categoryParam = searchParams.get("category")
+
+  const isSilver = metal === "silver"
+  const metalLabel = isSilver ? "Сребро" : "Злато"
+  const metalBasePath = isSilver ? "/silver" : "/gold"
 
   const [goldItems, setGoldItems] = useState<GoldSale[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,7 +87,7 @@ export default function GoldPage() {
   const currentPageRef = useRef(currentPage)
   const initialLoadDone = useRef(false)
   const didRestore = useRef(false)
-  const listStateKey = `gold-list-state:${categoryParam ?? "all"}`
+  const listStateKey = `${metal}-list-state:${categoryParam ?? "all"}`
 
   useEffect(() => {
     currentPageRef.current = currentPage
@@ -156,39 +165,29 @@ export default function GoldPage() {
   }, [persistListState])
 
   const fetchCategoryBanner = async () => {
+    // Static default banner is gold-specific; silver has no default until one is configured in admin
+    const defaultGoldBanner = {
+      id: 0,
+      image_url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/images%20%2899%29-l6ymgIf8VrwozO8ldsszndnVrjtV9k.jpeg",
+      link_url: "#",
+      title: `${metalLabel} - специални оферти`,
+    }
     try {
-      const response = await fetch("/api/category-banners?category_type=gold")
+      const response = await fetch(`/api/category-banners?category_type=${metal}`)
       if (response.ok) {
         const data = await response.json()
         if (data && data.image_url) {
           setCategoryBanner(data)
         } else {
-          // Use static default banner if no database banner exists
-          setCategoryBanner({
-            id: 0,
-            image_url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/images%20%2899%29-l6ymgIf8VrwozO8ldsszndnVrjtV9k.jpeg",
-            link_url: "#",
-            title: "Злато - специални оферти"
-          })
+          // Use static default banner only for gold; leave silver without a banner
+          setCategoryBanner(isSilver ? null : defaultGoldBanner)
         }
       } else {
-        // Use static default banner on error
-        setCategoryBanner({
-          id: 0,
-          image_url: "https://images.unsplash.com/photo-1610375461246-83df859d849d?w=1400&h=400&fit=crop&crop=center",
-          link_url: "#",
-          title: "Злато - специални оферти"
-        })
+        setCategoryBanner(isSilver ? null : defaultGoldBanner)
       }
     } catch (error) {
       console.error("Error fetching category banner:", error)
-      // Use static default banner on error
-      setCategoryBanner({
-        id: 0,
-        image_url: "https://images.unsplash.com/photo-1610375461246-83df859d849d?w=1400&h=400&fit=crop&crop=center",
-        link_url: "#",
-        title: "Злато - специални оферти"
-      })
+      setCategoryBanner(isSilver ? null : defaultGoldBanner)
     }
   }
 
@@ -197,7 +196,11 @@ export default function GoldPage() {
       const response = await fetch("/api/gold")
       if (!response.ok) throw new Error("Failed to fetch gold sales")
       const data = await response.json()
-      setGoldItems(data)
+      // Split gold vs silver by the item's metal type so each page shows only its own items
+      const items = Array.isArray(data)
+        ? data.filter((item: GoldSale) => isSilverType(item.gold_type) === isSilver)
+        : []
+      setGoldItems(items)
     } catch (error) {
       console.error("Error fetching gold sales:", error)
     } finally {
@@ -528,7 +531,7 @@ export default function GoldPage() {
           onClick={() => setGoldTypeFilterOpen(!goldTypeFilterOpen)}
           className="flex items-center justify-between w-full text-left"
         >
-          <h3 className="font-bold text-base">Тип злато</h3>
+                <h3 className="font-bold text-base">Тип {metalLabel.toLowerCase()}</h3>
           <ChevronDown
             className={`h-5 w-5 text-red-500 transition-transform ${goldTypeFilterOpen ? "rotate-180" : ""}`}
           />
@@ -879,7 +882,7 @@ export default function GoldPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Зареждане на злато...</p>
+          <p className="text-muted-foreground">Зареждане на {metalLabel.toLowerCase()}...</p>
         </div>
       </div>
     )
@@ -897,13 +900,13 @@ export default function GoldPage() {
               Начало
             </Link>
             <span>›</span>
-            <Link href="/gold" className="hover:text-foreground">
-              Злато
+            <Link href={metalBasePath} className="hover:text-foreground">
+              {metalLabel}
             </Link>
             {categoryInfo?.parentName && (
               <>
                 <span>›</span>
-                <Link href={`/gold?category=${categoryInfo.parentId}`} className="hover:text-foreground">
+                <Link href={`${metalBasePath}?category=${categoryInfo.parentId}`} className="hover:text-foreground">
                   {categoryInfo.parentName}
                 </Link>
               </>
@@ -924,13 +927,13 @@ export default function GoldPage() {
               Начало
             </Link>
             <span>›</span>
-            <Link href="/gold" className="hover:text-foreground">
-              Злато
+            <Link href={metalBasePath} className="hover:text-foreground">
+              {metalLabel}
             </Link>
             {categoryInfo?.parentName && (
               <>
                 <span>›</span>
-                <Link href={`/gold?category=${categoryInfo.parentId}`} className="hover:text-foreground">
+                <Link href={`${metalBasePath}?category=${categoryInfo.parentId}`} className="hover:text-foreground">
                   {categoryInfo.parentName}
                 </Link>
               </>
@@ -990,7 +993,7 @@ export default function GoldPage() {
           {/* First row - Category name and count */}
           <div className="pt-2 pb-2">
             <h1 className="text-lg font-bold">
-              {categoryInfo ? categoryInfo.name : "Злато"} ({filteredGold.length})
+                {categoryInfo ? categoryInfo.name : metalLabel} ({filteredGold.length})
             </h1>
           </div>
 
@@ -1095,7 +1098,7 @@ export default function GoldPage() {
           <div className="max-w-[1400px] mx-auto px-4 mb-6">
             <div className="flex items-center justify-between gap-4">
               <h1 className="text-2xl font-bold text-foreground">
-                {categoryInfo ? categoryInfo.name : "Злато"} <span className="text-muted-foreground">({filteredGold.length})</span>
+                {categoryInfo ? categoryInfo.name : metalLabel} <span className="text-muted-foreground">({filteredGold.length})</span>
               </h1>
 
               <div className="flex items-center gap-2">
@@ -1140,7 +1143,7 @@ export default function GoldPage() {
                 {filteredGold.length === 0 ? (
                   <div className="text-center py-16">
                     <Sparkles className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold mb-2">Няма намерено злато</h3>
+                    <h3 className="text-xl font-semibold mb-2">Няма намерено {metalLabel.toLowerCase()}</h3>
                     <p className="text-muted-foreground">Опитайте да промените филтрите за търсене</p>
                   </div>
                 ) : (
@@ -1348,7 +1351,7 @@ export default function GoldPage() {
         {filteredGold.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-lg">
             <Sparkles className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Няма намерено злато</h3>
+            <h3 className="text-xl font-semibold mb-2">Няма намерено {metalLabel.toLowerCase()}</h3>
             <p className="text-muted-foreground">Опитайте да промените филтрите за търсене</p>
           </div>
         ) : (
@@ -1594,4 +1597,8 @@ export default function GoldPage() {
       </Dialog>
     </div>
   )
+}
+
+export default function GoldPage() {
+  return <MetalListing metal="gold" />
 }

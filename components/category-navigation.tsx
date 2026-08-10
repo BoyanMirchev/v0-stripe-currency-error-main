@@ -42,9 +42,15 @@ interface Category {
 const staticCategories: Category[] = [
   {
     id: "gold",
-    name: "Злато или Сребро",
+    name: "Злато",
     icon: "/images/pgmks1168.png",
     href: "/gold",
+  },
+  {
+    id: "silver",
+    name: "Сребро",
+    icon: "/images/pgmks1168.png",
+    href: "/silver",
   },
   {
     id: "auto",
@@ -108,12 +114,14 @@ export default function CategoryNavigation({ onClose }: CategoryNavigationProps)
   // Merge static categories (Gold, Auto) with fetched equipment categories
   useEffect(() => {
     const goldCategory = staticCategories.find(c => c.id === "gold")
+    const silverCategory = staticCategories.find(c => c.id === "silver")
     const autoCategory = staticCategories.find(c => c.id === "auto")
     
-    // Build merged categories: Gold first, then equipment categories, then Auto
+    // Build merged categories: Gold, Silver, then equipment categories, then Auto
     const merged: (Category | EquipmentCategory)[] = []
     
     if (goldCategory) merged.push(goldCategory)
+    if (silverCategory) merged.push(silverCategory)
     
     // Add equipment categories (main categories only - subcategories are nested)
     equipmentCategories.forEach(cat => {

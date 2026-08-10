@@ -1956,7 +1956,7 @@ const fetchCategories = async () => {
 
       toast({
         title: "Успех",
-        description: editingStore ? "Обектът е обновен успешно" : "Обектът е добавен успешно",
+        description: editingStore ? "Обектът е обновен успешно" : "Обектът е д��бавен успешно",
       })
 
       setStoreDialogOpen(false)
@@ -5760,6 +5760,7 @@ const resetGoldForm = () => {
                                   <SelectItem value="Бяло злато">Бяло злато</SelectItem>
                                   <SelectItem value="Розово злато">Розово злато</SelectItem>
                                   <SelectItem value="Платина">Платина</SelectItem>
+                                  <SelectItem value="Сребро">Сребро</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
