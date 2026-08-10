@@ -42,7 +42,7 @@ interface Category {
 const staticCategories: Category[] = [
   {
     id: "gold",
-    name: "Злато",
+    name: "Злато или Сребро",
     icon: "/images/pgmks1168.png",
     href: "/gold",
   },
