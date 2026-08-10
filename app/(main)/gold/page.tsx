@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
@@ -74,6 +74,30 @@ export default function GoldPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 12
 
+  // Refs used to remember the listing position (page + scroll) across product visits
+  const currentPageRef = useRef(currentPage)
+  const initialLoadDone = useRef(false)
+  const didRestore = useRef(false)
+  const listStateKey = `gold-list-state:${categoryParam ?? "all"}`
+
+  useEffect(() => {
+    currentPageRef.current = currentPage
+  }, [currentPage])
+
+  const persistListState = useCallback(() => {
+    // Only start persisting once we've restored any previously saved position,
+    // so an early scroll/render can't overwrite it before we read it back.
+    if (!initialLoadDone.current) return
+    try {
+      sessionStorage.setItem(
+        listStateKey,
+        JSON.stringify({ page: currentPageRef.current, scrollY: window.scrollY }),
+      )
+    } catch {
+      // Ignore storage errors (e.g. private mode)
+    }
+  }, [listStateKey])
+
   const [goldCategories, setGoldCategories] = useState<GoldCategory[]>([])
   const [goldSubcategories, setGoldSubcategories] = useState<{ id: string; label: string }[]>([])
 
@@ -124,11 +148,12 @@ export default function GoldPage() {
     const handleScroll = () => {
       const scrollPosition = window.scrollY
       setIsSticky(scrollPosition > 100)
+      persistListState()
     }
 
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
+  }, [persistListState])
 
   const fetchCategoryBanner = async () => {
     try {
@@ -275,6 +300,9 @@ export default function GoldPage() {
   }, [categoryParam, goldCategories])
 
   useEffect(() => {
+    // Don't reset while restoring the saved position on initial load;
+    // only reset to page 1 when the user actually changes a filter afterwards.
+    if (!initialLoadDone.current) return
     setCurrentPage(1)
   }, [
     goldTypeFilter,
@@ -286,6 +314,42 @@ export default function GoldPage() {
     selectedSubcategory,
     selectedParentCategory,
   ])
+
+  // Restore the saved page + scroll position when returning to this listing
+  // (e.g. after viewing a product and pressing back).
+  useEffect(() => {
+    if (didRestore.current) return
+    if (loading) return
+    if (goldCategories.length === 0) return
+    didRestore.current = true
+
+    let savedScrollY = 0
+    try {
+      const raw = sessionStorage.getItem(listStateKey)
+      if (raw) {
+        const saved = JSON.parse(raw)
+        if (saved?.page && saved.page > 1) setCurrentPage(saved.page)
+        savedScrollY = saved?.scrollY || 0
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
+    initialLoadDone.current = true
+
+    if (savedScrollY > 0) {
+      const restoreScroll = () => window.scrollTo(0, savedScrollY)
+      requestAnimationFrame(() => requestAnimationFrame(restoreScroll))
+      // Fallbacks for late layout shifts (e.g. product images loading in)
+      setTimeout(restoreScroll, 150)
+      setTimeout(restoreScroll, 400)
+    }
+  }, [loading, goldCategories, listStateKey])
+
+  // Persist page changes so returning to the listing resumes on the same page.
+  useEffect(() => {
+    persistListState()
+  }, [currentPage, persistListState])
 
   const goldTypes = Array.from(new Set(goldItems.map((item) => item.gold_type))).filter(Boolean)
 
