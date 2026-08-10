@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, use } from "react"
+import { useState, useEffect, useRef, useCallback, use } from "react"
 import { Header } from "@/components/header"
 import Link from "next/link"
 import Image from "next/image"
@@ -118,6 +118,71 @@ export default function StoreProductsPage({ params }: { params: Promise<{ id: st
   const [showInStockOnly, setShowInStockOnly] = useState(false)
   const [expandedFilter, setExpandedFilter] = useState<string | null>(null)
   const itemsPerPage = 12
+
+  // Refs used to remember the listing position (page + scroll) across product visits
+  const currentPageRef = useRef(currentPage)
+  const initialLoadDone = useRef(false)
+  const didRestore = useRef(false)
+  const listStateKey = `store-list-state:${resolvedParams.id}`
+
+  useEffect(() => {
+    currentPageRef.current = currentPage
+  }, [currentPage])
+
+  const persistListState = useCallback(() => {
+    // Only persist after we've restored any saved position, so an early
+    // scroll/render can't overwrite it before we read it back.
+    if (!initialLoadDone.current) return
+    try {
+      sessionStorage.setItem(
+        listStateKey,
+        JSON.stringify({ page: currentPageRef.current, scrollY: window.scrollY }),
+      )
+    } catch {
+      // Ignore storage errors (e.g. private mode)
+    }
+  }, [listStateKey])
+
+  useEffect(() => {
+    const handleScroll = () => persistListState()
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [persistListState])
+
+  // Restore the saved page + scroll position when returning to this listing
+  // (e.g. after viewing a product and pressing back).
+  useEffect(() => {
+    if (didRestore.current) return
+    if (loading) return
+    didRestore.current = true
+
+    let savedScrollY = 0
+    try {
+      const raw = sessionStorage.getItem(listStateKey)
+      if (raw) {
+        const saved = JSON.parse(raw)
+        if (saved?.page && saved.page > 1) setCurrentPage(saved.page)
+        savedScrollY = saved?.scrollY || 0
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
+    initialLoadDone.current = true
+
+    if (savedScrollY > 0) {
+      const restoreScroll = () => window.scrollTo(0, savedScrollY)
+      requestAnimationFrame(() => requestAnimationFrame(restoreScroll))
+      // Fallbacks for late layout shifts (e.g. images loading in)
+      setTimeout(restoreScroll, 150)
+      setTimeout(restoreScroll, 400)
+    }
+  }, [loading, listStateKey])
+
+  // Persist page changes so returning to the listing resumes on the same page.
+  useEffect(() => {
+    persistListState()
+  }, [currentPage, persistListState])
 
   const { addToCart } = useCart()
   const { addFavorite, removeFavorite, isFavorited } = useFavorites()
