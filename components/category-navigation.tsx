@@ -49,7 +49,7 @@ const staticCategories: Category[] = [
   {
     id: "silver",
     name: "Сребро",
-    icon: "/images/pgmks1168.png",
+    icon: "/images/crown-silver.png",
     href: "/silver",
   },
   {
@@ -232,13 +232,13 @@ export default function CategoryNavigation({ onClose }: CategoryNavigationProps)
                   className="w-full flex items-center px-4 py-5 hover:bg-gray-50 transition-all text-left"
                 >
                   <div className="flex-shrink-0 w-10 h-10 mr-4">
-                    <Image
-                      src={getCategoryIcon(category)}
-                      alt={getCategoryName(category)}
-                      width={40}
-                      height={40}
-                      className="object-contain"
-                    />
+                      <Image
+                        src={category.icon || "/images/pgmks1168.png"}
+                        alt={getCategoryName(category)}
+                        width={40}
+                        height={40}
+                        className="object-contain"
+                      />
                   </div>
                   <span className={`flex-1 text-base ${index === 0 ? "font-bold" : "font-normal"} text-gray-900`}>
                     {getCategoryName(category)}
@@ -335,7 +335,7 @@ export default function CategoryNavigation({ onClose }: CategoryNavigationProps)
                   >
                     <div className="flex-shrink-0 w-10 h-10 mr-4">
                       <Image
-                        src="/images/pgmks1168.png"
+                        src="/images/crown-silver.png"
                         alt="Всички"
                         width={40}
                         height={40}
@@ -355,7 +355,7 @@ export default function CategoryNavigation({ onClose }: CategoryNavigationProps)
                     >
                       <div className="flex-shrink-0 w-10 h-10 mr-4">
                         <Image
-                          src="/images/pgmks1168.png"
+                          src="/images/crown-silver.png"
                           alt={toSilverName(category.name)}
                           width={40}
                           height={40}
@@ -377,7 +377,7 @@ export default function CategoryNavigation({ onClose }: CategoryNavigationProps)
                       >
                         <div className="flex-shrink-0 w-10 h-10 mr-4">
                           <Image
-                            src="/images/pgmks1168.png"
+                            src="/images/crown-silver.png"
                             alt={name}
                             width={40}
                             height={40}
