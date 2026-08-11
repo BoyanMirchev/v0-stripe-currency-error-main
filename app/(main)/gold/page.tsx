@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
@@ -52,18 +52,9 @@ interface GoldCategory {
   parent_id: number | null
 }
 
-const SILVER_REGEX = /сребро|srebro|silver/i
-export function isSilverType(goldType: string | null | undefined) {
-  return SILVER_REGEX.test(goldType || "")
-}
-
-export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) {
+export default function GoldPage() {
   const searchParams = useSearchParams()
   const categoryParam = searchParams.get("category")
-
-  const isSilver = metal === "silver"
-  const metalLabel = isSilver ? "Сребро" : "Злато"
-  const metalBasePath = isSilver ? "/silver" : "/gold"
 
   const [goldItems, setGoldItems] = useState<GoldSale[]>([])
   const [loading, setLoading] = useState(true)
@@ -82,30 +73,6 @@ export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) 
   const [isSticky, setIsSticky] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 12
-
-  // Refs used to remember the listing position (page + scroll) across product visits
-  const currentPageRef = useRef(currentPage)
-  const initialLoadDone = useRef(false)
-  const didRestore = useRef(false)
-  const listStateKey = `${metal}-list-state:${categoryParam ?? "all"}`
-
-  useEffect(() => {
-    currentPageRef.current = currentPage
-  }, [currentPage])
-
-  const persistListState = useCallback(() => {
-    // Only start persisting once we've restored any previously saved position,
-    // so an early scroll/render can't overwrite it before we read it back.
-    if (!initialLoadDone.current) return
-    try {
-      sessionStorage.setItem(
-        listStateKey,
-        JSON.stringify({ page: currentPageRef.current, scrollY: window.scrollY }),
-      )
-    } catch {
-      // Ignore storage errors (e.g. private mode)
-    }
-  }, [listStateKey])
 
   const [goldCategories, setGoldCategories] = useState<GoldCategory[]>([])
   const [goldSubcategories, setGoldSubcategories] = useState<{ id: string; label: string }[]>([])
@@ -157,37 +124,46 @@ export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) 
     const handleScroll = () => {
       const scrollPosition = window.scrollY
       setIsSticky(scrollPosition > 100)
-      persistListState()
     }
 
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
-  }, [persistListState])
+  }, [])
 
   const fetchCategoryBanner = async () => {
-    // Static default banner is gold-specific; silver has no default until one is configured in admin
-    const defaultGoldBanner = {
-      id: 0,
-      image_url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/images%20%2899%29-l6ymgIf8VrwozO8ldsszndnVrjtV9k.jpeg",
-      link_url: "#",
-      title: `${metalLabel} - специални оферти`,
-    }
     try {
-      const response = await fetch(`/api/category-banners?category_type=${metal}`)
+      const response = await fetch("/api/category-banners?category_type=gold")
       if (response.ok) {
         const data = await response.json()
         if (data && data.image_url) {
           setCategoryBanner(data)
         } else {
-          // Use static default banner only for gold; leave silver without a banner
-          setCategoryBanner(isSilver ? null : defaultGoldBanner)
+          // Use static default banner if no database banner exists
+          setCategoryBanner({
+            id: 0,
+            image_url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/images%20%2899%29-l6ymgIf8VrwozO8ldsszndnVrjtV9k.jpeg",
+            link_url: "#",
+            title: "Злато - специални оферти"
+          })
         }
       } else {
-        setCategoryBanner(isSilver ? null : defaultGoldBanner)
+        // Use static default banner on error
+        setCategoryBanner({
+          id: 0,
+          image_url: "https://images.unsplash.com/photo-1610375461246-83df859d849d?w=1400&h=400&fit=crop&crop=center",
+          link_url: "#",
+          title: "Злато - специални оферти"
+        })
       }
     } catch (error) {
       console.error("Error fetching category banner:", error)
-      setCategoryBanner(isSilver ? null : defaultGoldBanner)
+      // Use static default banner on error
+      setCategoryBanner({
+        id: 0,
+        image_url: "https://images.unsplash.com/photo-1610375461246-83df859d849d?w=1400&h=400&fit=crop&crop=center",
+        link_url: "#",
+        title: "Злато - специални оферти"
+      })
     }
   }
 
@@ -196,11 +172,7 @@ export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) 
       const response = await fetch("/api/gold")
       if (!response.ok) throw new Error("Failed to fetch gold sales")
       const data = await response.json()
-      // Split gold vs silver by the item's metal type so each page shows only its own items
-      const items = Array.isArray(data)
-        ? data.filter((item: GoldSale) => isSilverType(item.gold_type) === isSilver)
-        : []
-      setGoldItems(items)
+      setGoldItems(data)
     } catch (error) {
       console.error("Error fetching gold sales:", error)
     } finally {
@@ -303,9 +275,6 @@ export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) 
   }, [categoryParam, goldCategories])
 
   useEffect(() => {
-    // Don't reset while restoring the saved position on initial load;
-    // only reset to page 1 when the user actually changes a filter afterwards.
-    if (!initialLoadDone.current) return
     setCurrentPage(1)
   }, [
     goldTypeFilter,
@@ -317,42 +286,6 @@ export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) 
     selectedSubcategory,
     selectedParentCategory,
   ])
-
-  // Restore the saved page + scroll position when returning to this listing
-  // (e.g. after viewing a product and pressing back).
-  useEffect(() => {
-    if (didRestore.current) return
-    if (loading) return
-    if (goldCategories.length === 0) return
-    didRestore.current = true
-
-    let savedScrollY = 0
-    try {
-      const raw = sessionStorage.getItem(listStateKey)
-      if (raw) {
-        const saved = JSON.parse(raw)
-        if (saved?.page && saved.page > 1) setCurrentPage(saved.page)
-        savedScrollY = saved?.scrollY || 0
-      }
-    } catch {
-      // Ignore storage errors
-    }
-
-    initialLoadDone.current = true
-
-    if (savedScrollY > 0) {
-      const restoreScroll = () => window.scrollTo(0, savedScrollY)
-      requestAnimationFrame(() => requestAnimationFrame(restoreScroll))
-      // Fallbacks for late layout shifts (e.g. product images loading in)
-      setTimeout(restoreScroll, 150)
-      setTimeout(restoreScroll, 400)
-    }
-  }, [loading, goldCategories, listStateKey])
-
-  // Persist page changes so returning to the listing resumes on the same page.
-  useEffect(() => {
-    persistListState()
-  }, [currentPage, persistListState])
 
   const goldTypes = Array.from(new Set(goldItems.map((item) => item.gold_type))).filter(Boolean)
 
@@ -531,7 +464,7 @@ export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) 
           onClick={() => setGoldTypeFilterOpen(!goldTypeFilterOpen)}
           className="flex items-center justify-between w-full text-left"
         >
-                <h3 className="font-bold text-base">Тип {metalLabel.toLowerCase()}</h3>
+          <h3 className="font-bold text-base">Тип злато</h3>
           <ChevronDown
             className={`h-5 w-5 text-red-500 transition-transform ${goldTypeFilterOpen ? "rotate-180" : ""}`}
           />
@@ -882,7 +815,7 @@ export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) 
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Зареждане на {metalLabel.toLowerCase()}...</p>
+          <p className="text-muted-foreground">Зареждане на злато...</p>
         </div>
       </div>
     )
@@ -900,13 +833,13 @@ export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) 
               Начало
             </Link>
             <span>›</span>
-            <Link href={metalBasePath} className="hover:text-foreground">
-              {metalLabel}
+            <Link href="/gold" className="hover:text-foreground">
+              Злато
             </Link>
             {categoryInfo?.parentName && (
               <>
                 <span>›</span>
-                <Link href={`${metalBasePath}?category=${categoryInfo.parentId}`} className="hover:text-foreground">
+                <Link href={`/gold?category=${categoryInfo.parentId}`} className="hover:text-foreground">
                   {categoryInfo.parentName}
                 </Link>
               </>
@@ -927,13 +860,13 @@ export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) 
               Начало
             </Link>
             <span>›</span>
-            <Link href={metalBasePath} className="hover:text-foreground">
-              {metalLabel}
+            <Link href="/gold" className="hover:text-foreground">
+              Злато
             </Link>
             {categoryInfo?.parentName && (
               <>
                 <span>›</span>
-                <Link href={`${metalBasePath}?category=${categoryInfo.parentId}`} className="hover:text-foreground">
+                <Link href={`/gold?category=${categoryInfo.parentId}`} className="hover:text-foreground">
                   {categoryInfo.parentName}
                 </Link>
               </>
@@ -993,7 +926,7 @@ export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) 
           {/* First row - Category name and count */}
           <div className="pt-2 pb-2">
             <h1 className="text-lg font-bold">
-                {categoryInfo ? categoryInfo.name : metalLabel} ({filteredGold.length})
+              {categoryInfo ? categoryInfo.name : "Злато"} ({filteredGold.length})
             </h1>
           </div>
 
@@ -1098,7 +1031,7 @@ export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) 
           <div className="max-w-[1400px] mx-auto px-4 mb-6">
             <div className="flex items-center justify-between gap-4">
               <h1 className="text-2xl font-bold text-foreground">
-                {categoryInfo ? categoryInfo.name : metalLabel} <span className="text-muted-foreground">({filteredGold.length})</span>
+                {categoryInfo ? categoryInfo.name : "Злато"} <span className="text-muted-foreground">({filteredGold.length})</span>
               </h1>
 
               <div className="flex items-center gap-2">
@@ -1143,7 +1076,7 @@ export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) 
                 {filteredGold.length === 0 ? (
                   <div className="text-center py-16">
                     <Sparkles className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold mb-2">Няма намерено {metalLabel.toLowerCase()}</h3>
+                    <h3 className="text-xl font-semibold mb-2">Няма намерено злато</h3>
                     <p className="text-muted-foreground">Опитайте да промените филтрите за търсене</p>
                   </div>
                 ) : (
@@ -1351,7 +1284,7 @@ export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) 
         {filteredGold.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-lg">
             <Sparkles className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Няма намерено {metalLabel.toLowerCase()}</h3>
+            <h3 className="text-xl font-semibold mb-2">Няма намерено злато</h3>
             <p className="text-muted-foreground">Опитайте да промените филтрите за търсене</p>
           </div>
         ) : (
@@ -1597,8 +1530,4 @@ export function MetalListing({ metal = "gold" }: { metal?: "gold" | "silver" }) 
       </Dialog>
     </div>
   )
-}
-
-export default function GoldPage() {
-  return <MetalListing metal="gold" />
 }
