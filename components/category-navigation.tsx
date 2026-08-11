@@ -47,12 +47,6 @@ const staticCategories: Category[] = [
     href: "/gold",
   },
   {
-    id: "silver",
-    name: "Сребро",
-    icon: "/images/crown-silver.png",
-    href: "/silver",
-  },
-  {
     id: "auto",
     name: "Авто",
     icon: "/images/avto-icon.webp",
@@ -114,14 +108,12 @@ export default function CategoryNavigation({ onClose }: CategoryNavigationProps)
   // Merge static categories (Gold, Auto) with fetched equipment categories
   useEffect(() => {
     const goldCategory = staticCategories.find(c => c.id === "gold")
-    const silverCategory = staticCategories.find(c => c.id === "silver")
     const autoCategory = staticCategories.find(c => c.id === "auto")
     
-    // Build merged categories: Gold, Silver, then equipment categories, then Auto
+    // Build merged categories: Gold first, then equipment categories, then Auto
     const merged: (Category | EquipmentCategory)[] = []
     
     if (goldCategory) merged.push(goldCategory)
-    if (silverCategory) merged.push(silverCategory)
     
     // Add equipment categories (main categories only - subcategories are nested)
     equipmentCategories.forEach(cat => {
@@ -143,7 +135,7 @@ export default function CategoryNavigation({ onClose }: CategoryNavigationProps)
 
   const handleCategoryClick = (category: Category | EquipmentCategory) => {
     if (isStaticCategory(category)) {
-      if (category.id === "gold" || category.id === "silver" || category.subcategories) {
+      if (category.id === "gold" || category.subcategories) {
         setSelectedCategory(category)
       } else if (category.href) {
         window.location.href = category.href
@@ -178,12 +170,6 @@ export default function CategoryNavigation({ onClose }: CategoryNavigationProps)
   const getCategoryName = (cat: Category | EquipmentCategory): string => {
     return cat.name
   }
-
-  // Silver reuses the same category structure as gold; adjust the label wording
-  const toSilverName = (name: string): string =>
-    name.replace(/Злато/g, "Сребро").replace(/злато/g, "сребро")
-
-  const topLevelMetalCategories = goldCategories.filter((cat) => cat.parent_id === null)
 
   if (isMobile) {
     return (
@@ -232,13 +218,13 @@ export default function CategoryNavigation({ onClose }: CategoryNavigationProps)
                   className="w-full flex items-center px-4 py-5 hover:bg-gray-50 transition-all text-left"
                 >
                   <div className="flex-shrink-0 w-10 h-10 mr-4">
-                      <Image
-                        src={category.icon || "/images/pgmks1168.png"}
-                        alt={getCategoryName(category)}
-                        width={40}
-                        height={40}
-                        className="object-contain"
-                      />
+                    <Image
+                      src={getCategoryIcon(category)}
+                      alt={getCategoryName(category)}
+                      width={40}
+                      height={40}
+                      className="object-contain"
+                    />
                   </div>
                   <span className={`flex-1 text-base ${index === 0 ? "font-bold" : "font-normal"} text-gray-900`}>
                     {getCategoryName(category)}
@@ -253,7 +239,7 @@ export default function CategoryNavigation({ onClose }: CategoryNavigationProps)
               {/* Gold Categories */}
               {selectedCategory.id === "gold" && (
                 <>
-                  {/* "All" link - navigates to the full gold listing */}
+                  {/* View All Link */}
                   <Link
                     href="/gold"
                     onClick={onClose}
@@ -271,7 +257,6 @@ export default function CategoryNavigation({ onClose }: CategoryNavigationProps)
                     <span className="flex-1 text-base font-medium text-gray-900">Всички</span>
                     <ChevronRight className="w-5 h-5 text-[#e60200] flex-shrink-0" />
                   </Link>
-
                   {/* Gold Categories from API */}
                   {goldCategories
                     .filter((cat) => cat.parent_id === null)
@@ -321,73 +306,6 @@ export default function CategoryNavigation({ onClose }: CategoryNavigationProps)
                       ))}
                     </>
                   )}
-                </>
-              )}
-
-              {/* Silver Categories (mirror gold structure, link to /silver) */}
-              {selectedCategory.id === "silver" && (
-                <>
-                  {/* "All" link - navigates to the full silver listing */}
-                  <Link
-                    href="/silver"
-                    onClick={onClose}
-                    className="w-full flex items-center px-4 py-5 hover:bg-gray-50 transition-all text-left"
-                  >
-                    <div className="flex-shrink-0 w-10 h-10 mr-4">
-                      <Image
-                        src="/images/crown-silver.png"
-                        alt="Всички"
-                        width={40}
-                        height={40}
-                        className="object-contain"
-                      />
-                    </div>
-                    <span className="flex-1 text-base font-medium text-gray-900">Всички</span>
-                    <ChevronRight className="w-5 h-5 text-[#e60200] flex-shrink-0" />
-                  </Link>
-
-                  {topLevelMetalCategories.map((category) => (
-                    <Link
-                      key={category.id}
-                      href={`/silver?category=${category.slug}`}
-                      onClick={onClose}
-                      className="w-full flex items-center px-4 py-5 hover:bg-gray-50 transition-all text-left"
-                    >
-                      <div className="flex-shrink-0 w-10 h-10 mr-4">
-                        <Image
-                          src="/images/crown-silver.png"
-                          alt={toSilverName(category.name)}
-                          width={40}
-                          height={40}
-                          className="object-contain"
-                        />
-                      </div>
-                      <span className="flex-1 text-base font-normal text-gray-900">{toSilverName(category.name)}</span>
-                      <ChevronRight className="w-5 h-5 text-[#e60200] flex-shrink-0" />
-                    </Link>
-                  ))}
-
-                  {topLevelMetalCategories.length === 0 &&
-                    ["Дамски", "Мъжки", "Детски", "Монети", "Промоции"].map((name) => (
-                      <Link
-                        key={name}
-                        href={`/silver?category=${name.toLowerCase()}`}
-                        onClick={onClose}
-                        className="w-full flex items-center px-4 py-5 hover:bg-gray-50 transition-all text-left"
-                      >
-                        <div className="flex-shrink-0 w-10 h-10 mr-4">
-                          <Image
-                            src="/images/crown-silver.png"
-                            alt={name}
-                            width={40}
-                            height={40}
-                            className="object-contain"
-                          />
-                        </div>
-                        <span className="flex-1 text-base font-normal text-gray-900">{name}</span>
-                        <ChevronRight className="w-5 h-5 text-[#e60200] flex-shrink-0" />
-                      </Link>
-                    ))}
                 </>
               )}
 
@@ -527,7 +445,7 @@ export default function CategoryNavigation({ onClose }: CategoryNavigationProps)
               <div className="space-y-4">
                 {/* Gold Categories Grid */}
                 <div className="flex flex-wrap gap-3">
-                  {/* "All" link - navigates to the full gold listing */}
+                  {/* View All Link */}
                   <Link
                     href="/gold"
                     onClick={onClose}
@@ -567,47 +485,6 @@ export default function CategoryNavigation({ onClose }: CategoryNavigationProps)
                       <Link
                         key={name}
                         href={`/gold?category=${name.toLowerCase().replace(/ /g, "-")}`}
-                        onClick={onClose}
-                        className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-900 hover:bg-gray-50 hover:border-[#c9a227] hover:text-[#c9a227] transition-colors"
-                      >
-                        {name}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Silver Categories (mirror gold structure, link to /silver) */}
-            {selectedCategory.id === "silver" && (
-              <div className="space-y-4">
-                <div className="flex flex-wrap gap-3">
-                  {/* "All" link - navigates to the full silver listing */}
-                  <Link
-                    href="/silver"
-                    onClick={onClose}
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-900 hover:bg-gray-50 hover:border-[#c9a227] hover:text-[#c9a227] transition-colors"
-                  >
-                    Всички
-                  </Link>
-                  {topLevelMetalCategories.map((category) => (
-                    <Link
-                      key={category.id}
-                      href={`/silver?category=${category.slug}`}
-                      onClick={onClose}
-                      className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-900 hover:bg-gray-50 hover:border-[#c9a227] hover:text-[#c9a227] transition-colors"
-                    >
-                      {toSilverName(category.name)}
-                    </Link>
-                  ))}
-                </div>
-
-                {topLevelMetalCategories.length === 0 && (
-                  <div className="flex flex-wrap gap-3 mt-4">
-                    {["ВСИЧКИ ДАМСКИ", "ПРЪСТЕНИ", "ОБЕЦИ", "КОЛИЕТА", "МОНЕТИ"].map((name) => (
-                      <Link
-                        key={name}
-                        href={`/silver?category=${name.toLowerCase().replace(/ /g, "-")}`}
                         onClick={onClose}
                         className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-900 hover:bg-gray-50 hover:border-[#c9a227] hover:text-[#c9a227] transition-colors"
                       >
